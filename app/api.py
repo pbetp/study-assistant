@@ -33,7 +33,7 @@ class FindResponse(BaseModel):
 
 def create_app(embedder: Embedder, index: Index, min_score: float = MIN_SCORE) -> FastAPI:
     """Build the app from its parts. Tests pass fakes here; production passes real ones."""
-    app = FastAPI(title="Netcentric Slide Finder")
+    app = FastAPI(title="Study Assistant (Slide Finder)")
 
     @app.get("/health")
     def health() -> dict:

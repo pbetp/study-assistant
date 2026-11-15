@@ -26,7 +26,7 @@ from app.ingest import chapter_name
 from app.search import Result, find_pages
 
 INSTRUCTIONS = """\
-Slides of the Netcentric Architecture course (computer networking, based on Kurose & Ross).
+The user's course slides on computer networking (based on Kurose & Ross).
 Call find_slides when the user asks about this course, a lecture, or a networking topic they study.
 - Explain from the slide text the tool returns. If the slides do not cover something, say so.
 - Always name the chapter and pages, so the user can open the slides.
