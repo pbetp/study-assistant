@@ -1,12 +1,17 @@
-"""Settings and tuning values, in one place (no secrets in code).
+"""Settings and tuning values, in one place.
 
-Settings come from environment variables and every one has a default, so the project runs
-with zero setup. To override one in PowerShell:  $env:DOCS_DIR = "data_other"
+Folders are given from the project root (the folder that holds app/ and site/), so every
+command works no matter which folder it is started from.
 """
 
-import os
-from dataclasses import dataclass
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+
+DOCS_DIR = ROOT / "data"  # your PDF slides (git-ignored, because they are copyrighted)
+INDEX_DIR = ROOT / "site" / "index"  # the saved index; the web page reads it from here
+MODEL_DIR = ROOT / ".cache" / "models"  # the embedding model is downloaded here once
+EMBED_MODEL = "Xenova/multilingual-e5-small"  # Hugging Face repo with the ONNX model files
 
 # How the finder is tuned. Each value was measured on the evaluation queries (see README).
 # They are also written into the index (config.json), so the web page searches with the
@@ -14,19 +19,3 @@ from pathlib import Path
 MIN_SCORE = 0.82  # a page less similar than this is "not about the query"
 CANDIDATE_PAGES = 15  # how many close pages to look at before merging them into ranges
 MAX_RESULTS = 3  # the best range ("start reading here") + up to 2 more
-
-
-@dataclass(frozen=True)
-class Settings:
-    docs_dir: Path  # folder with the PDFs; change it to index another course
-    index_dir: Path  # where the index is saved (and where the web page reads it)
-    embed_model: str  # Hugging Face repo with the ONNX model files
-
-    @classmethod
-    def from_env(cls) -> "Settings":
-        env = os.environ.get
-        return cls(
-            docs_dir=Path(env("DOCS_DIR", "data")),
-            index_dir=Path(env("INDEX_DIR", "site/index")),
-            embed_model=env("EMBED_MODEL", "Xenova/multilingual-e5-small"),
-        )

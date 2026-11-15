@@ -8,7 +8,7 @@ python -m app.cli find           keep asking (the model is loaded only once)
 import argparse
 import sys
 
-from app.config import Settings
+from app.config import DOCS_DIR, EMBED_MODEL, INDEX_DIR
 from app.embed import OnnxEmbedder
 from app.index import Index
 from app.ingest import load_documents
@@ -36,29 +36,29 @@ def titles_text(result: Result) -> str:
     return shown + (" · …" if len(result.titles) > MAX_TITLES else "")
 
 
-def cmd_index(settings: Settings) -> None:
-    pages = load_documents(settings.docs_dir)
+def cmd_index() -> None:
+    pages = load_documents(DOCS_DIR)
     if not pages:
-        print(f"No PDF pages found in {settings.docs_dir}")
+        print(f"No PDF pages found in {DOCS_DIR}")
         return
     print(f"{len(pages)} pages found. Embedding (about 15 seconds)...")
-    vectors = OnnxEmbedder(settings.embed_model).embed_documents([p.text for p in pages])
-    Index(pages, vectors).save(settings.index_dir, settings.embed_model)
-    print(f"Saved the index of {len(pages)} pages to {settings.index_dir}")
+    vectors = OnnxEmbedder().embed_documents([p.text for p in pages])
+    Index(pages, vectors).save(INDEX_DIR, EMBED_MODEL)
+    print(f"Saved the index of {len(pages)} pages to {INDEX_DIR}")
 
 
-def cmd_find(settings: Settings, query: str) -> None:
+def cmd_find(query: str) -> None:
     """One query, or (with no query) keep asking until an empty line.
 
     Loading the model takes about 10 seconds; each search after that is almost instant,
     so the interactive mode is the comfortable way to use it while studying.
     """
     try:
-        index = Index.load(settings.index_dir)
+        index = Index.load(INDEX_DIR)
     except FileNotFoundError:
-        print(f"No index in {settings.index_dir}. Run first:  python -m app.cli index")
+        print(f"No index in {INDEX_DIR}. Run first:  python -m app.cli index")
         return
-    embedder = OnnxEmbedder(settings.embed_model)
+    embedder = OnnxEmbedder()
     if query:
         print(format_results(find_pages(query, embedder, index)))
         return
@@ -85,11 +85,10 @@ def main() -> None:
     find.add_argument("query", nargs="*", help="topic or question; leave out to keep asking")
     args = parser.parse_args()
 
-    settings = Settings.from_env()
     if args.command == "index":
-        cmd_index(settings)
+        cmd_index()
     else:
-        cmd_find(settings, " ".join(args.query))
+        cmd_find(" ".join(args.query))
 
 
 if __name__ == "__main__":

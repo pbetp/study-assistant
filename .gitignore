@@ -1,29 +1,20 @@
-# ---- Copyrighted course material: NEVER commit ----
-# Your PDF slides live here. Keep this line at the top.
+# Copyrighted course material: NEVER commit. Your PDF slides live here.
 data/
 
-# ---- Secrets ----
-# API keys go in .env (local only). .env.example is safe to commit.
-.env
+# Downloaded embedding model
+.cache/
 
-# ---- Python ----
+# Python
 __pycache__/
 *.py[cod]
 .venv/
-venv/
-
-# ---- Tool caches ----
 .pytest_cache/
 .ruff_cache/
 
-# ---- Editor / OS ----
+# Editor / OS
 .vscode/
-.idea/
 .DS_Store
 Thumbs.db
-
-# Model downloads (embedding model cache)
-.cache/
 
 # Note: site/index/ (titles, page numbers and vectors, no slide text) is committed on purpose,
 # because the web page reads it.

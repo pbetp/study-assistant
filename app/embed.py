@@ -14,13 +14,14 @@ import hashlib
 import math
 import os
 import re
-from pathlib import Path
 from typing import Protocol
 
 import numpy as np
 
-MODEL_REPO = "Xenova/multilingual-e5-small"  # Hugging Face repo that hosts the ONNX files
+from app.config import EMBED_MODEL, MODEL_DIR
+
 MODEL_FILE = "onnx/model_quantized.onnx"  # 118 MB; the full-size file is 470 MB
+BATCH_SIZE = 16  # how many texts the model reads at once
 MAX_TOKENS = 512  # longest text the model reads; longer text is cut
 PAD_ID = 1  # id of the padding token in this model's vocabulary
 # E5 models were trained with these prefixes; leaving them out lowers quality.
@@ -50,14 +51,9 @@ def normalize(vectors: np.ndarray) -> np.ndarray:
 
 
 class OnnxEmbedder:
-    """Runs the quantized e5 model with ONNX Runtime. Files are downloaded once to cache_dir."""
+    """Runs the quantized e5 model with ONNX Runtime. Files are downloaded once to MODEL_DIR."""
 
-    def __init__(
-        self,
-        repo: str = MODEL_REPO,
-        cache_dir: Path = Path(".cache/models"),
-        batch_size: int = 16,
-    ):
+    def __init__(self):
         # Imported here, not at the top, so importing this file stays fast and tests
         # that use FakeEmbedder never load the model libraries.
         os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")  # noisy on Windows
@@ -65,25 +61,23 @@ class OnnxEmbedder:
         from huggingface_hub import hf_hub_download
         from tokenizers import Tokenizer
 
-        model_path = hf_hub_download(repo, MODEL_FILE, cache_dir=str(cache_dir))
-        tokenizer_path = hf_hub_download(repo, "tokenizer.json", cache_dir=str(cache_dir))
+        model_path = hf_hub_download(EMBED_MODEL, MODEL_FILE, cache_dir=str(MODEL_DIR))
+        tokenizer_path = hf_hub_download(EMBED_MODEL, "tokenizer.json", cache_dir=str(MODEL_DIR))
         self._session = onnxruntime.InferenceSession(model_path, providers=["CPUExecutionProvider"])
-        self._input_names = {i.name for i in self._session.get_inputs()}
         self._tokenizer = Tokenizer.from_file(tokenizer_path)
         self._tokenizer.enable_truncation(max_length=MAX_TOKENS)
         # Pad every text in a batch to the same length so they fit in one array.
         self._tokenizer.enable_padding(pad_id=PAD_ID, pad_token="<pad>")
-        self._batch_size = batch_size
 
     def _encode(self, texts: list[str]) -> list[list[float]]:
         vectors = []
-        for start in range(0, len(texts), self._batch_size):
-            encoded = self._tokenizer.encode_batch(texts[start : start + self._batch_size])
+        for start in range(0, len(texts), BATCH_SIZE):
+            encoded = self._tokenizer.encode_batch(texts[start : start + BATCH_SIZE])
             ids = np.array([e.ids for e in encoded], dtype=np.int64)
             mask = np.array([e.attention_mask for e in encoded], dtype=np.int64)
-            inputs = {"input_ids": ids, "attention_mask": mask}
-            if "token_type_ids" in self._input_names:  # this model expects it, all zeros
-                inputs["token_type_ids"] = np.zeros_like(ids)
+            # token_type_ids is an input this model requires; for single texts it is all zeros.
+            zeros = np.zeros_like(ids)
+            inputs = {"input_ids": ids, "attention_mask": mask, "token_type_ids": zeros}
             hidden = self._session.run(None, inputs)[0]  # (texts, tokens, dim)
             vectors.append(normalize(mean_pool(hidden, mask)))
         return np.vstack(vectors).tolist()

@@ -12,7 +12,7 @@ Run:  uvicorn app.api:create_default_app --factory
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
-from app.config import MIN_SCORE, Settings
+from app.config import INDEX_DIR, MIN_SCORE
 from app.embed import Embedder, OnnxEmbedder
 from app.index import Index
 from app.search import find_pages
@@ -63,6 +63,5 @@ def create_app(embedder: Embedder, index: Index, min_score: float = MIN_SCORE) -
 
 
 def create_default_app() -> FastAPI:
-    """Production wiring from environment variables (loads the real embedding model)."""
-    settings = Settings.from_env()
-    return create_app(OnnxEmbedder(settings.embed_model), Index.load(settings.index_dir))
+    """The real app: loads the real embedding model and the saved index."""
+    return create_app(OnnxEmbedder(), Index.load(INDEX_DIR))

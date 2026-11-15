@@ -1,4 +1,5 @@
-﻿# Runtime dependencies (lower bounds = versions this project was built and tested with).
+﻿# Everything the Python side needs (lower bounds = versions this project was built and tested with).
+# The web page in site/ needs none of this: it runs in the browser.
 pypdf>=7.0             # read text and titles from PDF pages
 onnxruntime>=1.20      # runs the embedding model
 tokenizers>=0.20       # turns text into the token ids the model reads
@@ -6,3 +7,9 @@ huggingface_hub>=0.26  # downloads the model files once
 numpy>=1.26            # vector maths and the index
 fastapi>=0.162         # REST API
 uvicorn>=0.54          # server that runs the API
+mcp>=1.10,<2           # MCP server, so Claude can call the search
+
+# Tests and lint
+pytest>=9.0
+ruff>=0.17
+httpx>=0.28            # needed by FastAPI's TestClient

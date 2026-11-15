@@ -1,27 +1,12 @@
-from pathlib import Path
-
-from app.config import MAX_RESULTS, MIN_SCORE, Settings
-
-
-def test_defaults_work_without_any_environment(monkeypatch):
-    for name in ("DOCS_DIR", "INDEX_DIR", "EMBED_MODEL"):
-        monkeypatch.delenv(name, raising=False)
-
-    s = Settings.from_env()
-
-    assert s.docs_dir == Path("data")
-    assert s.index_dir == Path("site/index")
-    assert s.embed_model == "Xenova/multilingual-e5-small"
+from app.config import DOCS_DIR, INDEX_DIR, MAX_RESULTS, MIN_SCORE, ROOT
+from app.index import Index
 
 
-def test_environment_overrides_defaults(monkeypatch):
-    monkeypatch.setenv("DOCS_DIR", "other_course")
-    monkeypatch.setenv("INDEX_DIR", "other_index")
+def test_folders_do_not_depend_on_where_the_command_is_started(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)  # pretend the program was started from some other folder
 
-    s = Settings.from_env()
-
-    assert s.docs_dir == Path("other_course")
-    assert s.index_dir == Path("other_index")
+    assert DOCS_DIR == ROOT / "data"
+    assert len(Index.load(INDEX_DIR).pages) > 0  # the index shipped in site/index/ is still found
 
 
 def test_tuning_values_are_sensible():

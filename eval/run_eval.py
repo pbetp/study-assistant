@@ -9,17 +9,16 @@ A query is a hit at k if one of the first k results (page ranges) contains an ex
 The finder shows 3 results, so hit@3 = "the right page is on the screen".
 
 Uses the index built by `python -m app.cli index`.
-Run:  python -m eval.run_eval  [--out eval/results.md]
+Run:  python -m eval.run_eval
 """
 
-import argparse
 import json
 import sys
 from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path
 
-from app.config import MIN_SCORE, Settings
+from app.config import EMBED_MODEL, INDEX_DIR, MIN_SCORE
 from app.embed import OnnxEmbedder
 from app.index import Index
 from app.search import Result, find_pages
@@ -70,22 +69,14 @@ def format_table(scores: dict[str, tuple[int, dict[int, float]]]) -> str:
 
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--out", type=Path, help="also write the table to this file")
-    args = parser.parse_args()
-
-    settings = Settings.from_env()
-    embedder = OnnxEmbedder(settings.embed_model)
-    index = Index.load(settings.index_dir)
+    embedder = OnnxEmbedder()
+    index = Index.load(INDEX_DIR)
 
     def find(query: str) -> list[Result]:
         return find_pages(query, embedder, index)
 
-    table = format_table(evaluate(load_questions(), find))
-    header = f"Model {settings.embed_model}, MIN_SCORE {MIN_SCORE}\n\n"
-    print(header + table)
-    if args.out:
-        args.out.write_text(header + table + "\n", encoding="utf-8")
+    print(f"Model {EMBED_MODEL}, MIN_SCORE {MIN_SCORE}\n")
+    print(format_table(evaluate(load_questions(), find)))
 
 
 if __name__ == "__main__":

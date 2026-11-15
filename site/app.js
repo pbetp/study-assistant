@@ -4,11 +4,14 @@ import { findPages, pagesText } from "./search.js";
 
 // Pinned version (never "latest"): the page must keep working when a new release comes out.
 const TRANSFORMERS_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1";
+const MAX_TITLES = 5; // a long range has many slide titles; show the first few
 
 const form = document.getElementById("form");
 const input = document.getElementById("q");
 const statusLine = document.getElementById("status");
+const progressBar = document.getElementById("progress");
 const results = document.getElementById("results");
+const stats = document.getElementById("stats");
 
 async function fetchOk(url) {
   const response = await fetch(url);
@@ -38,7 +41,10 @@ async function loadModel(config) {
     const all = [...files.values()];
     const total = all.reduce((sum, f) => sum + f.total, 0);
     const loaded = all.reduce((sum, f) => sum + f.loaded, 0);
-    statusLine.textContent = `Downloading the search model… ${Math.round((100 * loaded) / total)}%`;
+    const percent = Math.round((100 * loaded) / total);
+    statusLine.textContent = `Downloading the search model… ${percent}%`;
+    progressBar.value = percent;
+    progressBar.hidden = false;
   };
   return pipeline("feature-extraction", config.model, {
     dtype: config.dtype,
@@ -49,30 +55,48 @@ async function loadModel(config) {
 async function start() {
   statusLine.textContent = "Loading…";
   const index = await loadIndex();
+  stats.textContent = `${index.config.count} slides · ${index.data.chapters.length} chapters · ${stats.textContent}`;
   const extractor = await loadModel(index.config);
-  statusLine.textContent = "";
+  progressBar.hidden = true;
+  statusLine.textContent = "Ready.";
   return { ...index, extractor };
 }
 
 const ready = start();
 ready.catch((error) => {
+  progressBar.hidden = true;
   statusLine.textContent = `Could not start: ${error.message}`;
 });
 
-// Builds one result card. textContent (not innerHTML) keeps slide titles from being read as HTML.
-function card(range, isBest) {
-  const box = document.createElement("div");
-  box.className = "card" + (isBest ? " best" : "");
-  const label = document.createElement("div");
-  label.className = "label";
-  label.textContent = isBest ? "Start reading" : "Also related";
-  const where = document.createElement("div");
-  where.className = "where";
-  where.textContent = `${range.chapter}, p.${pagesText(range)}`;
-  const titles = document.createElement("div");
-  titles.className = "titles";
-  titles.textContent = range.titles.length ? range.titles.join(" · ") : "(diagram slide, no title)";
-  box.append(label, where, titles);
+// Makes one element. textContent (not innerHTML) keeps slide titles from being read as HTML.
+function element(tag, className, text = "") {
+  const node = document.createElement(tag);
+  node.className = className;
+  node.textContent = text;
+  return node;
+}
+
+// Builds one result card. `position` (0, 1, 2) delays the animation so cards appear in turn.
+function card(range, position) {
+  const isBest = position === 0;
+  const box = element("article", isBest ? "card best" : "card");
+  box.style.setProperty("--i", position);
+
+  const pageCount = range.lastPage - range.firstPage + 1;
+  const top = element("div", "top");
+  top.append(
+    element("span", "label", isBest ? "Start reading" : "Also related"),
+    element("span", "count", pageCount === 1 ? "1 page" : `${pageCount} pages`),
+  );
+
+  const titles = element("ul", "titles");
+  const shown = range.titles.length ? range.titles.slice(0, MAX_TITLES) : ["(diagram slide, no title)"];
+  for (const title of shown) titles.append(element("li", "", title));
+  if (range.titles.length > MAX_TITLES) {
+    titles.append(element("li", "", `+ ${range.titles.length - MAX_TITLES} more`));
+  }
+
+  box.append(top, element("h2", "where", `${range.chapter}, p.${pagesText(range)}`), titles);
   return box;
 }
 
@@ -80,8 +104,7 @@ async function search(query) {
   results.replaceChildren();
   let app;
   try {
-    statusLine.textContent = "Loading the search model… (first visit only)";
-    app = await ready;
+    app = await ready; // while the model is still loading, the status line already says so
   } catch {
     return; // the error is already shown
   }
@@ -98,11 +121,11 @@ async function search(query) {
     config: app.config,
   });
   if (found.length === 0) {
-    statusLine.textContent = "Not found in the slides.";
+    statusLine.textContent = "Not found in the slides. Try a shorter key term, like the examples above.";
     return;
   }
-  statusLine.textContent = "";
-  found.forEach((range, i) => results.append(card(range, i === 0)));
+  statusLine.textContent = found.length === 1 ? "1 place to read" : `${found.length} places to read`;
+  found.forEach((range, position) => results.append(card(range, position)));
 }
 
 form.addEventListener("submit", (event) => {
@@ -114,6 +137,14 @@ form.addEventListener("submit", (event) => {
     statusLine.textContent = `Something went wrong: ${error.message}`;
   });
 });
+
+// An example chip fills the box with its text and searches.
+for (const chip of document.querySelectorAll(".chip")) {
+  chip.addEventListener("click", () => {
+    input.value = chip.textContent;
+    form.requestSubmit();
+  });
+}
 
 // A link like  index.html?q=udp  fills the box and searches as soon as the page is ready.
 const fromLink = new URLSearchParams(location.search).get("q");
