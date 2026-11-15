@@ -1,4 +1,4 @@
-# netcentric-study-assistant
+#study-assistant
 
 Find **where** a topic is in your course slides. Type a topic or a question, in English or
 Thai, and get the chapter and page range to start reading. It runs entirely in the browser
